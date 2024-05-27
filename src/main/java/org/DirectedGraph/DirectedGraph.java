@@ -7,8 +7,8 @@ import com.mxgraph.util.mxCellRenderer;
 import com.mxgraph.util.mxConstants;
 import com.mxgraph.view.mxStylesheet;
 import org.jgrapht.ext.JGraphXAdapter;
-import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DefaultDirectedWeightedGraph;
+import org.jgrapht.graph.DefaultWeightedEdge;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -23,8 +23,8 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
 
-public class Main {
-    private static DefaultDirectedGraph<String, DefaultEdge> Graph;
+public class DirectedGraph {
+    private static DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> Graph;
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) throws IOException {
@@ -59,6 +59,7 @@ public class Main {
                     System.out.println("请输入文本：");
                     String inputText = scanner.nextLine();
                     String newText = generateNewText(inputText);
+                    System.out.println("New text with bridge words: " + newText);
                     break;
                 case "4":
                     System.out.println("请输入起始单词：");
@@ -87,7 +88,7 @@ public class Main {
         try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] tokens = line.replaceAll("[^a-zA-Z ]", "").toLowerCase().split("\\s+");
+                String[] tokens = line.replaceAll("[^a-zA-Z ]", " ").toLowerCase().split("\\s+");
                 words.addAll(Arrays.asList(tokens));
             }
         } catch (IOException e) {
@@ -96,36 +97,47 @@ public class Main {
         return words;
     }
 
-    // 构建有向图
-    private static DefaultDirectedGraph<String, DefaultEdge> buildGraph(List<String> words) {
-        DefaultDirectedGraph<String, DefaultEdge> Graph = new DefaultDirectedGraph<>(DefaultEdge.class);
-        int i;
-        for (i = 0; i < words.size() - 1; i++) {
+    // 构建加权有向图
+    private static DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> buildGraph(List<String> words) {
+        DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph = new DefaultDirectedWeightedGraph<>(DefaultWeightedEdge.class);
+        for (int i = 0; i < words.size() - 1; i++) {
             String currentWord = words.get(i);
             String nextWord = words.get(i + 1);
 
-            if (!Graph.containsVertex(currentWord)) {
-                Graph.addVertex(currentWord);
+            if (!graph.containsVertex(currentWord)) {
+                graph.addVertex(currentWord);
             }
-            if (!Graph.containsVertex(nextWord)) {
-                Graph.addVertex(nextWord);
+            if (!graph.containsVertex(nextWord)) {
+                graph.addVertex(nextWord);
             }
-            Graph.addEdge(currentWord, nextWord);
+
+            DefaultWeightedEdge edge = graph.getEdge(currentWord, nextWord);
+            if (edge == null) {
+                edge = graph.addEdge(currentWord, nextWord);
+                graph.setEdgeWeight(edge, 1.0);  // 初始权重设为1
+            } else {
+                double currentWeight = graph.getEdgeWeight(edge);
+                graph.setEdgeWeight(edge, currentWeight + 1.0);  // 权重加1
+            }
         }
-        String currentWord = words.get(i);
-        if (!Graph.containsVertex(currentWord)) {
-            Graph.addVertex(currentWord);
-        }
-        return Graph;
+        return graph;
     }
-    private static void showDirectedGraph(DefaultDirectedGraph<String, DefaultEdge> Graph) throws IOException {
-        JGraphXAdapter<String, DefaultEdge> graphAdapter = new JGraphXAdapter<>(Graph);
+
+    private static void showDirectedGraph(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph) throws IOException {
+        JGraphXAdapter<String, DefaultWeightedEdge> graphAdapter = new JGraphXAdapter<>(graph);
+
+        // 为每条边设置标签为边的权重
+        for (DefaultWeightedEdge edge : graph.edgeSet()) {
+            double weight = graph.getEdgeWeight(edge);
+            graphAdapter.getEdgeToCellMap().get(edge).setValue(weight);
+        }
 
         // 创建一个样式表
         mxStylesheet stylesheet = new mxStylesheet();
-        // 设置边的样式，隐藏边的值
+        // 设置边的样式，显示边的值
         Map<String, Object> edgeStyle = stylesheet.getDefaultEdgeStyle();
-        edgeStyle.put(mxConstants.STYLE_NOLABEL, "1");
+        edgeStyle.put(mxConstants.STYLE_LABEL_POSITION, mxConstants.ALIGN_CENTER);
+        edgeStyle.put(mxConstants.STYLE_VERTICAL_LABEL_POSITION, mxConstants.ALIGN_MIDDLE);
         // 将样式表应用于图形适配器
         graphAdapter.setStylesheet(stylesheet);
         // 执行布局
@@ -133,7 +145,6 @@ public class Main {
         layout.execute(graphAdapter.getDefaultParent());
         // 创建图像
         BufferedImage image = mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
-
         // 将图像保存到文件
         File imgFile = new File("graph.png");
         ImageIO.write(image, "PNG", imgFile);
@@ -143,7 +154,6 @@ public class Main {
         mxGraphComponent graphComponent = new mxGraphComponent(graphAdapter);
         frame.getContentPane().add(graphComponent);
         frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-        //graphComponent.zoomTo(1.8, true);
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
@@ -156,8 +166,8 @@ public class Main {
             return bridgeWords;
         }
 
-        Set<DefaultEdge> outgoingEdges = Graph.outgoingEdgesOf(word1);
-        for (DefaultEdge edge : outgoingEdges) {
+        Set<DefaultWeightedEdge> outgoingEdges = Graph.outgoingEdgesOf(word1);
+        for (DefaultWeightedEdge edge : outgoingEdges) {
             String intermediateWord = Graph.getEdgeTarget(edge);
             if (Graph.containsEdge(intermediateWord, word2)) {
                 bridgeWords.add(intermediateWord);
@@ -168,11 +178,11 @@ public class Main {
     }
 
     private static String queryBridgeWords(String word1, String word2) {
-        if(!Graph.containsVertex(word1) && !Graph.containsVertex(word2)) {
+        if (!Graph.containsVertex(word1) && !Graph.containsVertex(word2)) {
             return "No \"" + word1 + "\" and \"" + word2 + "\" in the graph!";
-        } else if(!Graph.containsVertex(word1)) {
+        } else if (!Graph.containsVertex(word1)) {
             return "No \"" + word1 + "\" in the graph!";
-        } else if(!Graph.containsVertex(word2)) {
+        } else if (!Graph.containsVertex(word2)) {
             return "No \"" + word2 + "\" in the graph!";
         }
 
@@ -201,7 +211,7 @@ public class Main {
     }
 
     private static String generateNewText(String inputText) {
-        String[] words = inputText.replaceAll("[^a-zA-Z ]", "").toLowerCase().split("\\s+");
+        String[] words = inputText.replaceAll("[^a-zA-Z ]", " ").toLowerCase().split("\\s+");
         StringBuilder newTextWithBridges = new StringBuilder();
 
         Random random = new Random();
@@ -225,19 +235,15 @@ public class Main {
 
         String newText = newTextWithBridges.toString();
 
-        // Output the new text
-        System.out.println("New text with bridge words: " + newText);
-
         return newText;
     }
 
-    private static String calcShortestPath(String word1, String word2) {
-        // 检查图中是否包含输入的单词
+    private static String calcShortestPath(String word1, String word2) throws IOException {
         if (word1 != null && !word1.isEmpty() && !Graph.containsVertex(word1)) {
-            return "图中不包含单词：" + word1;
+            return "No \"" + word1 + "\" in the graph!";
         }
         if (word2 != null && !word2.isEmpty() && !Graph.containsVertex(word2)) {
-            return "图中不包含单词：" + word2;
+            return "No \"" + word2 + "\" in the graph!";
         }
 
         if (word1 != null && !word1.isEmpty() && (word2 == null || word2.isEmpty())) {
@@ -249,78 +255,99 @@ public class Main {
         }
     }
 
-    private static String calcShortestPathBetween(String word1, String word2) {
+    private static String calcShortestPathBetween(String word1, String word2) throws IOException {
+        if((word1 == null || word1.isEmpty()) && (word2 == null || word2.isEmpty())) {
+            return "输入为空";
+        }
         if (word1.equals(word2)) {
             return "两个单词相同，无需计算路径。";
         }
 
-        // 广度优先搜索（BFS）来找到最短路径
-        Map<String, String> previous = new HashMap<>();
-        Queue<String> queue = new LinkedList<>();
-        Set<String> visited = new HashSet<>();
+        // 使用自定义的Dijkstra算法计算最短路径
+        Map<String, Double> distances = new HashMap<>();
+        Map<String, String> previousNodes = new HashMap<>();
+        PriorityQueue<String> priorityQueue = new PriorityQueue<>(Comparator.comparingDouble(distances::get));
 
-        queue.add(word1);
-        visited.add(word1);
-        previous.put(word1, null);
+        for (String vertex : Graph.vertexSet()) {
+            if (vertex.equals(word1)) {
+                distances.put(vertex, 0.0);
+            } else {
+                distances.put(vertex, Double.MAX_VALUE);
+            }
+            priorityQueue.add(vertex);
+        }
 
-        boolean found = false;
+        while (!priorityQueue.isEmpty()) {
+            String current = priorityQueue.poll();
 
-        while (!queue.isEmpty() && !found) {
-            String current = queue.poll();
+            if (current.equals(word2)) {
+                break;
+            }
 
-            for (DefaultEdge edge : Graph.outgoingEdgesOf(current)) {
+            for (DefaultWeightedEdge edge : Graph.outgoingEdgesOf(current)) {
                 String neighbor = Graph.getEdgeTarget(edge);
+                double newDist = distances.get(current) + Graph.getEdgeWeight(edge);
 
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    queue.add(neighbor);
-                    previous.put(neighbor, current);
-
-                    if (neighbor.equals(word2)) {
-                        found = true;
-                        break;
-                    }
+                if (newDist < distances.get(neighbor)) {
+                    distances.put(neighbor, newDist);
+                    previousNodes.put(neighbor, current);
+                    priorityQueue.remove(neighbor);
+                    priorityQueue.add(neighbor);
                 }
             }
         }
 
-        if (!found) {
-            return "在这两个单词之间没有路径。";
+        if (!previousNodes.containsKey(word2)) {
+            return "No path from \"" + word1 + "\" to \"" + word2 + "\"!";
+        } else {
+            List<String> path = new ArrayList<>();
+            for (String at = word2; at != null; at = previousNodes.get(at)) {
+                path.add(at);
+            }
+            Collections.reverse(path);
+
+            StringBuilder result = new StringBuilder("Shortest path from \"" + word1 + "\" to \"" + word2 + "\" is: ");
+            for (int i = 0; i < path.size(); i++) {
+                result.append(path.get(i));
+                if (i < path.size() - 1) {
+                    result.append(" -> ");
+                }
+            }
+            result.append(", the length is ").append(distances.get(word2));
+
+            highlightPath(path);
+
+            return result.toString();
         }
-
-        // 通过previous map构建路径
-        List<String> path = new LinkedList<>();
-        for (String at = word2; at != null; at = previous.get(at)) {
-            path.add(0, at);
-        }
-
-        // 突出显示路径
-        highlightPath(path);
-
-        // 返回路径
-        return "从 " + word1 + " 到 " + word2 + " 的最短路径：" + String.join("→", path);
     }
 
     private static String calcAllShortestPathsFrom(String word) {
-        // 广度优先搜索（BFS）来找到从word到所有其他单词的最短路径
-        Map<String, String> previous = new HashMap<>();
-        Queue<String> queue = new LinkedList<>();
-        Set<String> visited = new HashSet<>();
+        // 使用自定义的Dijkstra算法计算从word到所有其他单词的最短路径
+        Map<String, Double> distances = new HashMap<>();
+        Map<String, String> previousNodes = new HashMap<>();
+        PriorityQueue<String> priorityQueue = new PriorityQueue<>(Comparator.comparingDouble(distances::get));
 
-        queue.add(word);
-        visited.add(word);
-        previous.put(word, null);
+        for (String vertex : Graph.vertexSet()) {
+            if (vertex.equals(word)) {
+                distances.put(vertex, 0.0);
+            } else {
+                distances.put(vertex, Double.MAX_VALUE);
+            }
+            priorityQueue.add(vertex);
+        }
 
-        while (!queue.isEmpty()) {
-            String current = queue.poll();
+        while (!priorityQueue.isEmpty()) {
+            String current = priorityQueue.poll();
 
-            for (DefaultEdge edge : Graph.outgoingEdgesOf(current)) {
+            for (DefaultWeightedEdge edge : Graph.outgoingEdgesOf(current)) {
                 String neighbor = Graph.getEdgeTarget(edge);
+                double newDist = distances.get(current) + Graph.getEdgeWeight(edge);
 
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    queue.add(neighbor);
-                    previous.put(neighbor, current);
+                if (newDist < distances.get(neighbor)) {
+                    distances.put(neighbor, newDist);
+                    previousNodes.put(neighbor, current);
+                    priorityQueue.remove(neighbor);
+                    priorityQueue.add(neighbor);
                 }
             }
         }
@@ -329,54 +356,56 @@ public class Main {
         StringBuilder result = new StringBuilder();
         for (String target : Graph.vertexSet()) {
             if (!target.equals(word)) {
-                List<String> path = new LinkedList<>();
-                for (String at = target; at != null; at = previous.get(at)) {
+                List<String> path = new ArrayList<>();
+                for (String at = target; at != null; at = previousNodes.get(at)) {
                     path.add(0, at);
                 }
                 if (path.size() > 1) {
-                    result.append("从 ").append(word).append(" 到 ").append(target).append(" 的最短路径：").append(String.join("→", path)).append("\n");
-                    highlightPath(path); // 突出显示每条路径
+                    result.append("从 ").append(word).append(" 到 ").append(target).append(" 的最短路径：").append(String.join("->", path)).append("\n");
+                    //highlightPath(path); // 突出显示每条路径
                 }
             }
         }
 
         if (result.length() == 0) {
-            return "没有从 " + word + " 到其他单词的路径。";
+            return "No path from " + word + " to other words!";
         }
 
         return result.toString();
     }
 
-    private static void highlightPath(List<String> path) {
-        JGraphXAdapter<String, DefaultEdge> graphAdapter = new JGraphXAdapter<>(Graph);
-        mxStylesheet stylesheet = graphAdapter.getStylesheet();
+
+    private static void highlightPath(List<String> path) throws IOException {
+        JGraphXAdapter<String, DefaultWeightedEdge> graphAdapter = new JGraphXAdapter<>(Graph);
+
+        // 设置边的样式，显示边的值
+        for (DefaultWeightedEdge edge : Graph.edgeSet()) {
+            double weight = Graph.getEdgeWeight(edge);
+            graphAdapter.getEdgeToCellMap().get(edge).setValue(weight);
+        }
+
+        mxStylesheet stylesheet = new mxStylesheet();
         Map<String, Object> edgeStyle = stylesheet.getDefaultEdgeStyle();
-        edgeStyle.put(mxConstants.STYLE_NOLABEL, "1");
+        edgeStyle.put(mxConstants.STYLE_LABEL_POSITION, mxConstants.ALIGN_CENTER);
+        edgeStyle.put(mxConstants.STYLE_VERTICAL_LABEL_POSITION, mxConstants.ALIGN_MIDDLE);
         graphAdapter.setStylesheet(stylesheet);
-
-        Set<DefaultEdge> edgesToHighlight = new HashSet<>();
-        for (int i = 0; i < path.size() - 1; i++) {
-            DefaultEdge edge = Graph.getEdge(path.get(i), path.get(i + 1));
-            if (edge != null) {
-                edgesToHighlight.add(edge);
-            }
-        }
-
-        for (DefaultEdge edge : edgesToHighlight) {
-            graphAdapter.getEdgeToCellMap().get(edge).setStyle("strokeColor=red;strokeWidth=3");
-        }
 
         mxIGraphLayout layout = new mxHierarchicalLayout(graphAdapter);
         layout.execute(graphAdapter.getDefaultParent());
 
-        BufferedImage image = mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
-        try {
-            File imgFile = new File("shortest_path.png");
-            ImageIO.write(image, "PNG", imgFile);
-            System.out.println("最短路径图像已保存到：" + imgFile.getAbsolutePath());
-        } catch (IOException e) {
-            e.printStackTrace();
+        // 高亮显示最短路径
+        for (int i = 0; i < path.size() - 1; i++) {
+            DefaultWeightedEdge edge = Graph.getEdge(path.get(i), path.get(i + 1));
+            if (edge != null) {
+                Object cell = graphAdapter.getEdgeToCellMap().get(edge);
+                graphAdapter.getModel().setStyle(cell, "strokeColor=red;strokeWidth=3");
+            }
         }
+
+        BufferedImage image = mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
+        File imgFile = new File("shortest_path.png");
+        ImageIO.write(image, "PNG", imgFile);
+        System.out.println("最短路径图像已保存到：" + imgFile.getAbsolutePath());
 
         JFrame frame = new JFrame();
         mxGraphComponent graphComponent = new mxGraphComponent(graphAdapter);
@@ -395,23 +424,21 @@ public class Main {
         Random random = new Random();
         List<String> vertices = new ArrayList<>(Graph.vertexSet());
         String startNode = vertices.get(random.nextInt(vertices.size()));
-
-        Set<DefaultEdge> visitedEdges = new HashSet<>();
         List<String> path = new ArrayList<>();
+        Set<DefaultWeightedEdge> visitedEdges = new HashSet<>();
         path.add(startNode);
 
         String currentNode = startNode;
         boolean userInterrupted = false;
 
         while (true) {
-            Set<DefaultEdge> outgoingEdges = Graph.outgoingEdgesOf(currentNode);
-
+            Set<DefaultWeightedEdge> outgoingEdges = Graph.outgoingEdgesOf(currentNode);
             if (outgoingEdges.isEmpty()) {
                 break;
             }
 
-            List<DefaultEdge> edgesList = new ArrayList<>(outgoingEdges);
-            DefaultEdge selectedEdge = edgesList.get(random.nextInt(edgesList.size()));
+            List<DefaultWeightedEdge> edgesList = new ArrayList<>(outgoingEdges);
+            DefaultWeightedEdge selectedEdge = edgesList.get(random.nextInt(edgesList.size()));
 
             if (visitedEdges.contains(selectedEdge)) {
                 currentNode = Graph.getEdgeTarget(selectedEdge);
@@ -419,20 +446,19 @@ public class Main {
                 break;
             }
 
-            visitedEdges.add(selectedEdge);
-            currentNode = Graph.getEdgeTarget(selectedEdge);
-            path.add(currentNode);
-
             System.out.println("当前节点: " + currentNode + "。输入'q'停止遍历，或按Enter键继续...");
             String userInput = scanner.nextLine();
             if (userInput.equalsIgnoreCase("q")) {
                 userInterrupted = true;
                 break;
             }
+
+            visitedEdges.add(selectedEdge);
+            currentNode = Graph.getEdgeTarget(selectedEdge);
+            path.add(currentNode);
         }
 
         String result = String.join(" ", path);
-
         try {
             Files.write(Paths.get("random_walk.txt"), result.getBytes());
             System.out.println("遍历结果已保存到文件：random_walk.txt");
@@ -442,8 +468,6 @@ public class Main {
 
         if (userInterrupted) {
             return "用户中断遍历，遍历结果：" + result;
-        } else if (visitedEdges.contains(Graph.getEdge(path.get(path.size() - 2), path.get(path.size() - 1)))) {
-            return "遍历完成，遍历结果：" + result;
         } else {
             return "遍历完成，遍历结果：" + result;
         }
