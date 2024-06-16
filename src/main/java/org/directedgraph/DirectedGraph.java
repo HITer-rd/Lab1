@@ -141,14 +141,12 @@ public class DirectedGraph {
         for (int i = 0; i < words.size() - 1; i++) {
             String currentWord = words.get(i);
             String nextWord = words.get(i + 1);
-
             if (!graph.containsVertex(currentWord)) {
                 graph.addVertex(currentWord);
             }
             if (!graph.containsVertex(nextWord)) {
                 graph.addVertex(nextWord);
             }
-
             DefaultWeightedEdge edge = graph.getEdge(currentWord, nextWord);
             if (edge == null) {
                 edge = graph.addEdge(currentWord, nextWord);
@@ -157,6 +155,9 @@ public class DirectedGraph {
                 double currentWeight = graph.getEdgeWeight(edge);
                 graph.setEdgeWeight(edge, currentWeight + 1.0);  // 权重加1
             }
+        }
+        if(words.size() == 1) {
+            graph.addVertex(words.get(0));
         }
         return graph;
     }
@@ -404,6 +405,7 @@ public class DirectedGraph {
      * @param word The starting word.
      * @return A message describing the shortest paths from the given word to all other words.
      */
+    @SuppressWarnings("checkstyle:Indentation")
     public static String calcAllShortestPathsFrom(String word) {
         // 使用自定义的Dijkstra算法计算从word到所有其他单词的最短路径
         Map<String, Double> distances = new HashMap<>();
@@ -418,7 +420,6 @@ public class DirectedGraph {
             }
             priorityQueue.add(vertex);
         }
-
         while (!priorityQueue.isEmpty()) {
             String current = priorityQueue.poll();
 
