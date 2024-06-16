@@ -78,13 +78,13 @@ public class DirectedGraph {
                     String word1 = scanner.nextLine();
                     System.out.println("请输入第二个单词：");
                     String word2 = scanner.nextLine();
-                    String bridgeWordsResult = queryBridgeWords(word1, word2);
+                    String bridgeWordsResult = queryBridgeWords(Graph, word1, word2);
                     System.out.println(bridgeWordsResult);
                     break;
                 case "3":
                     System.out.println("请输入文本：");
                     String inputText = scanner.nextLine();
-                    String newText = generateNewText(inputText);
+                    String newText = generateNewText(Graph, inputText);
                     System.out.println("New text with bridge words: " + newText);
                     break;
                 case "4":
@@ -96,7 +96,7 @@ public class DirectedGraph {
                     System.out.println(shortestPathResult);
                     break;
                 case "5":
-                    String randomWalkResult = randomWalk();
+                    String randomWalkResult = randomWalk(Graph);
                     System.out.println(randomWalkResult);
                     break;
                 case "6":
@@ -210,17 +210,17 @@ public class DirectedGraph {
      * @param word2 The second word.
      * @return A list of bridge words between the two given words.
      */
-    public static List<String> findBridgeWords(String word1, String word2) {
+    public static List<String> findBridgeWords(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph, String word1, String word2) {
         List<String> bridgeWords = new ArrayList<>();
 
-        if (!Graph.containsVertex(word1) || !Graph.containsVertex(word2)) {
+        if (!graph.containsVertex(word1) || !graph.containsVertex(word2)) {
             return bridgeWords;
         }
 
-        Set<DefaultWeightedEdge> outgoingEdges = Graph.outgoingEdgesOf(word1);
+        Set<DefaultWeightedEdge> outgoingEdges = graph.outgoingEdgesOf(word1);
         for (DefaultWeightedEdge edge : outgoingEdges) {
-            String intermediateWord = Graph.getEdgeTarget(edge);
-            if (Graph.containsEdge(intermediateWord, word2)) {
+            String intermediateWord = graph.getEdgeTarget(edge);
+            if (graph.containsEdge(intermediateWord, word2)) {
                 bridgeWords.add(intermediateWord);
             }
         }
@@ -235,16 +235,16 @@ public class DirectedGraph {
      * @param word2 The second word.
      * @return A message describing the bridge words between the two given words.
      */
-    public static String queryBridgeWords(String word1, String word2) {
-        if (!Graph.containsVertex(word1) && !Graph.containsVertex(word2)) {
+    public static String queryBridgeWords(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph, String word1, String word2) {
+        if (!graph.containsVertex(word1) && !graph.containsVertex(word2)) {
             return "No \"" + word1 + "\" and \"" + word2 + "\" in the graph!";
-        } else if (!Graph.containsVertex(word1)) {
+        } else if (!graph.containsVertex(word1)) {
             return "No \"" + word1 + "\" in the graph!";
-        } else if (!Graph.containsVertex(word2)) {
+        } else if (!graph.containsVertex(word2)) {
             return "No \"" + word2 + "\" in the graph!";
         }
 
-        List<String> bridgeWords = findBridgeWords(word1, word2);
+        List<String> bridgeWords = findBridgeWords(graph, word1, word2);
 
         if (bridgeWords.isEmpty()) {
             return "No bridge words from \"" + word1 + "\" to \"" + word2 + "\"!";
@@ -274,7 +274,7 @@ public class DirectedGraph {
      * @param inputText The input text.
      * @return The new text with bridge words inserted.
      */
-    public static String generateNewText(String inputText) {
+    public static String generateNewText(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph, String inputText) {
         String[] words = inputText.replaceAll("[^a-zA-Z ]", " ").toLowerCase().split("\\s+");
         StringBuilder newTextWithBridges = new StringBuilder();
 
@@ -284,7 +284,7 @@ public class DirectedGraph {
 
             newTextWithBridges.append(word1).append(" ");
 
-            List<String> bridgeWords = findBridgeWords(word1, word2);
+            List<String> bridgeWords = findBridgeWords(graph, word1, word2);
 
             if (!bridgeWords.isEmpty()) {
                 String bridgeWord = bridgeWords.get(random.nextInt(bridgeWords.size()));
@@ -509,12 +509,12 @@ public class DirectedGraph {
      *
      * @return A message describing the path taken during the random walk.
      */
-    public static String randomWalk() {
-        if (Graph.vertexSet().isEmpty()) {
+    public static String randomWalk(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph) {
+        if (graph.vertexSet().isEmpty()) {
             return "图中没有节点。";
         }
 
-        List<String> vertices = new ArrayList<>(Graph.vertexSet());
+        List<String> vertices = new ArrayList<>(graph.vertexSet());
         String startNode = vertices.get(random.nextInt(vertices.size()));
         List<String> path = new ArrayList<>();
         Set<DefaultWeightedEdge> visitedEdges = new HashSet<>();
@@ -524,7 +524,7 @@ public class DirectedGraph {
         boolean userInterrupted = false;
 
         while (true) {
-            Set<DefaultWeightedEdge> outgoingEdges = Graph.outgoingEdgesOf(currentNode);
+            Set<DefaultWeightedEdge> outgoingEdges = graph.outgoingEdgesOf(currentNode);
             if (outgoingEdges.isEmpty()) {
                 break;
             }
@@ -533,7 +533,7 @@ public class DirectedGraph {
             DefaultWeightedEdge selectedEdge = edgesList.get(random.nextInt(edgesList.size()));
 
             if (visitedEdges.contains(selectedEdge)) {
-                currentNode = Graph.getEdgeTarget(selectedEdge);
+                currentNode = graph.getEdgeTarget(selectedEdge);
                 path.add(currentNode);
                 break;
             }
@@ -546,7 +546,7 @@ public class DirectedGraph {
             }
 
             visitedEdges.add(selectedEdge);
-            currentNode = Graph.getEdgeTarget(selectedEdge);
+            currentNode = graph.getEdgeTarget(selectedEdge);
             path.add(currentNode);
         }
 
