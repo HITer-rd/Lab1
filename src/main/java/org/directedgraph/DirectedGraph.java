@@ -1,4 +1,4 @@
-package org.DirectedGraph;
+package org.directedgraph;
 
 import com.mxgraph.layout.hierarchical.mxHierarchicalLayout;
 import com.mxgraph.layout.mxIGraphLayout;
@@ -6,27 +6,53 @@ import com.mxgraph.swing.mxGraphComponent;
 import com.mxgraph.util.mxCellRenderer;
 import com.mxgraph.util.mxConstants;
 import com.mxgraph.view.mxStylesheet;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.Scanner;
+import java.util.Set;
+import javax.imageio.ImageIO;
+import javax.swing.JFrame;
 import org.jgrapht.ext.JGraphXAdapter;
 import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 
-import javax.imageio.ImageIO;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.List;
-
+/**
+ * This class demonstrates various functionalities of a directed graph.
+ * The graph is built from words read from a file and allows users to
+ * visualize the graph, find bridge words, generate new text, calculate
+ * the shortest paths, and perform random walks.
+ */
 public class DirectedGraph {
     private static DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> Graph;
-    private static final Scanner scanner = new Scanner(System.in);
+    private static final Scanner scanner = new Scanner(new
+            InputStreamReader(System.in, StandardCharsets.UTF_8));
+    private static final Random random = new Random();
 
+    /**
+     * The main method that drives the program. It presents a menu to the user
+     * to select different functionalities of the directed graph.
+     *
+     * @param args Command line arguments.
+     * @throws IOException If there is an error in reading the file or writing the output.
+     */
     public static void main(String[] args) throws IOException {
         String fileName = "input.txt";
         List<String> words = readWordsFromFile(fileName);
@@ -83,9 +109,15 @@ public class DirectedGraph {
         }
     }
 
-    private static List<String> readWordsFromFile(String fileName) {
+    /**
+     * Reads words from the specified file.
+     *
+     * @param fileName The name of the file to read words from.
+     * @return A list of words read from the file.
+     */
+    public static List<String> readWordsFromFile(String fileName) {
         List<String> words = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(fileName), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] tokens = line.replaceAll("[^a-zA-Z ]", " ").toLowerCase().split("\\s+");
@@ -97,8 +129,14 @@ public class DirectedGraph {
         return words;
     }
 
+    /**
+     * Builds a directed weighted graph from a list of words.
+     *
+     * @param words The list of words to build the graph from.
+     * @return A directed weighted graph.
+     */
     // 构建加权有向图
-    private static DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> buildGraph(List<String> words) {
+    public static DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> buildGraph(List<String> words) {
         DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph = new DefaultDirectedWeightedGraph<>(DefaultWeightedEdge.class);
         for (int i = 0; i < words.size() - 1; i++) {
             String currentWord = words.get(i);
@@ -123,7 +161,13 @@ public class DirectedGraph {
         return graph;
     }
 
-    private static void showDirectedGraph(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph) throws IOException {
+    /**
+     * Displays the directed graph using JGraphX and saves it as an image file.
+     *
+     * @param graph The directed graph to display.
+     * @throws IOException If there is an error in saving the image file.
+     */
+    public static void showDirectedGraph(DefaultDirectedWeightedGraph<String, DefaultWeightedEdge> graph) throws IOException {
         JGraphXAdapter<String, DefaultWeightedEdge> graphAdapter = new JGraphXAdapter<>(graph);
 
         // 为每条边设置标签为边的权重
@@ -159,7 +203,14 @@ public class DirectedGraph {
         frame.setVisible(true);
     }
 
-    private static List<String> findBridgeWords(String word1, String word2) {
+    /**
+     * Finds bridge words between two given words in the graph.
+     *
+     * @param word1 The first word.
+     * @param word2 The second word.
+     * @return A list of bridge words between the two given words.
+     */
+    public static List<String> findBridgeWords(String word1, String word2) {
         List<String> bridgeWords = new ArrayList<>();
 
         if (!Graph.containsVertex(word1) || !Graph.containsVertex(word2)) {
@@ -177,7 +228,14 @@ public class DirectedGraph {
         return bridgeWords;
     }
 
-    private static String queryBridgeWords(String word1, String word2) {
+    /**
+     * Queries and returns bridge words between two given words.
+     *
+     * @param word1 The first word.
+     * @param word2 The second word.
+     * @return A message describing the bridge words between the two given words.
+     */
+    public static String queryBridgeWords(String word1, String word2) {
         if (!Graph.containsVertex(word1) && !Graph.containsVertex(word2)) {
             return "No \"" + word1 + "\" and \"" + word2 + "\" in the graph!";
         } else if (!Graph.containsVertex(word1)) {
@@ -210,11 +268,15 @@ public class DirectedGraph {
         }
     }
 
-    private static String generateNewText(String inputText) {
+    /**
+     * Generates a new text by inserting bridge words between pairs of words from the input text.
+     *
+     * @param inputText The input text.
+     * @return The new text with bridge words inserted.
+     */
+    public static String generateNewText(String inputText) {
         String[] words = inputText.replaceAll("[^a-zA-Z ]", " ").toLowerCase().split("\\s+");
         StringBuilder newTextWithBridges = new StringBuilder();
-
-        Random random = new Random();
 
         for (int i = 0; i < words.length - 1; i++) {
             String word1 = words[i];
@@ -238,7 +300,14 @@ public class DirectedGraph {
         return newText;
     }
 
-    private static String calcShortestPath(String word1, String word2) throws IOException {
+    /**
+     * Calculates the shortest path between two given words in the graph.
+     *
+     * @param word1 The starting word.
+     * @param word2 The target word.
+     * @return A message describing the shortest path between the two given words.
+     */
+    public static String calcShortestPath(String word1, String word2) throws IOException {
         if (word1 != null && !word1.isEmpty() && !Graph.containsVertex(word1)) {
             return "No \"" + word1 + "\" in the graph!";
         }
@@ -255,8 +324,16 @@ public class DirectedGraph {
         }
     }
 
-    private static String calcShortestPathBetween(String word1, String word2) throws IOException {
-        if((word1 == null || word1.isEmpty()) && (word2 == null || word2.isEmpty())) {
+    /**
+     * Calculates the shortest path between two specific words in the graph.
+     *
+     * @param word1 The starting word.
+     * @param word2 The target word.
+     * @return A message describing the shortest path between the two given words.
+     * @throws IOException If an I/O error occurs while calculating the path.
+     */
+    public static String calcShortestPathBetween(String word1, String word2) throws IOException {
+        if ((word1 == null || word1.isEmpty()) && (word2 == null || word2.isEmpty())) {
             return "输入为空";
         }
         if (word1.equals(word2)) {
@@ -321,7 +398,13 @@ public class DirectedGraph {
         }
     }
 
-    private static String calcAllShortestPathsFrom(String word) {
+    /**
+     * Calculates all shortest paths from a given word to all other words in the graph.
+     *
+     * @param word The starting word.
+     * @return A message describing the shortest paths from the given word to all other words.
+     */
+    public static String calcAllShortestPathsFrom(String word) {
         // 使用自定义的Dijkstra算法计算从word到所有其他单词的最短路径
         Map<String, Double> distances = new HashMap<>();
         Map<String, String> previousNodes = new HashMap<>();
@@ -374,8 +457,13 @@ public class DirectedGraph {
         return result.toString();
     }
 
-
-    private static void highlightPath(List<String> path) throws IOException {
+    /**
+     * Highlights the given path in the graph and saves the highlighted graph as an image.
+     *
+     * @param path The list of words representing the path to be highlighted.
+     * @throws IOException If an I/O error occurs while saving the image.
+     */
+    public static void highlightPath(List<String> path) throws IOException {
         JGraphXAdapter<String, DefaultWeightedEdge> graphAdapter = new JGraphXAdapter<>(Graph);
 
         // 设置边的样式，显示边的值
@@ -416,12 +504,16 @@ public class DirectedGraph {
         frame.setVisible(true);
     }
 
-    private static String randomWalk() {
+    /**
+     * Performs a random walk starting from a randomly chosen vertex in the graph.
+     *
+     * @return A message describing the path taken during the random walk.
+     */
+    public static String randomWalk() {
         if (Graph.vertexSet().isEmpty()) {
             return "图中没有节点。";
         }
 
-        Random random = new Random();
         List<String> vertices = new ArrayList<>(Graph.vertexSet());
         String startNode = vertices.get(random.nextInt(vertices.size()));
         List<String> path = new ArrayList<>();
@@ -460,7 +552,7 @@ public class DirectedGraph {
 
         String result = String.join(" ", path);
         try {
-            Files.write(Paths.get("random_walk.txt"), result.getBytes());
+            Files.write(Paths.get("random_walk.txt"), result.getBytes(StandardCharsets.UTF_8));
             System.out.println("遍历结果已保存到文件：random_walk.txt");
         } catch (IOException e) {
             e.printStackTrace();
